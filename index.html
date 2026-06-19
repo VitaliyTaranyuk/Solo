@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#10131a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>RepCoach</title>
+<style>
+  :root{
+    --bg:#10131a; --panel:#171b25; --panel2:#1f2533; --line:#262d3d;
+    --txt:#e7ecf5; --mut:#8a93a6; --acc:#5b6cff; --acc2:#00d3a7;
+    --warn:#ff5d6c; --ok:#28d17c;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,Segoe UI,Roboto,Inter,system-ui,sans-serif}
+  #app{height:100%;display:flex;flex-direction:column}
+  .screen{display:none;flex:1;min-height:0;flex-direction:column;overflow:auto}
+  .screen.active{display:flex}
+  .topbar{display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:var(--bg);z-index:5}
+  .topbar h1{font-size:18px;margin:0;font-weight:600}
+  .topbar .back{background:none;border:none;color:var(--txt);font-size:22px;padding:4px 8px;cursor:pointer}
+  .pad{padding:16px;display:flex;flex-direction:column;gap:14px}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:14px;
+    padding:18px;font-size:17px;font-weight:600;color:#fff;background:var(--acc);cursor:pointer}
+  .btn:active{transform:scale(.99)}
+  .btn.sec{background:var(--panel2);color:var(--txt)}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}
+  .btn.danger{background:var(--panel2);color:var(--warn)}
+  .btn.sm{padding:12px;font-size:15px;border-radius:11px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
+  .row{display:flex;gap:10px;align-items:center}
+  .row.wrap{flex-wrap:wrap}
+  .grow{flex:1}
+  .mut{color:var(--mut);font-size:14px}
+  .h{font-size:15px;color:var(--mut);margin:2px 0 6px}
+  input,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    border-radius:11px;padding:13px;font-size:16px;outline:none}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .chip{padding:16px;border-radius:14px;background:var(--panel);border:1px solid var(--line);
+    text-align:center;font-weight:600;cursor:pointer}
+  .chip.on{border-color:var(--acc);background:#1a2140}
+  .num{font-variant-numeric:tabular-nums}
+  .list{display:flex;flex-direction:column;gap:10px}
+  .item{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;
+    display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer}
+  .empty{color:var(--mut);text-align:center;padding:40px 16px}
+  /* workout */
+  #workout{position:relative;background:#000;padding:0}
+  #wcanvas{position:absolute;inset:0;width:100%;height:100%}
+  .hud{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between}
+  .hud .top{padding:max(16px,env(safe-area-inset-top)) 16px 8px;display:flex;justify-content:space-between;
+    text-shadow:0 1px 6px #000}
+  .hud .mid{display:flex;align-items:center;justify-content:center}
+  .hud .reps{font-size:30vw;line-height:1;font-weight:800;color:#fff;text-shadow:0 2px 18px #000}
+  .hud .bot{pointer-events:auto;padding:8px 12px max(16px,env(safe-area-inset-bottom));
+    display:flex;flex-direction:column;gap:10px;background:linear-gradient(transparent,rgba(0,0,0,.55) 30%)}
+  .hud .info{font-size:16px;line-height:1.5}
+  .status{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--warn)}
+  .dot.ok{background:var(--ok)}
+  .wbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .wbtns .wide{grid-column:1/3}
+  .wbtn{padding:18px;border-radius:14px;border:none;font-size:18px;font-weight:700;color:#fff;
+    background:rgba(40,46,64,.85);backdrop-filter:blur(6px);cursor:pointer}
+  .wbtn.acc{background:rgba(91,108,255,.92)}
+  .wbtn.adj{background:rgba(20,24,34,.85);font-size:22px}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#000d;
+    color:#fff;padding:12px 18px;border-radius:12px;z-index:50;opacity:0;transition:.25s;font-size:15px}
+  .toast.show{opacity:1}
+  .bars{display:flex;align-items:flex-end;gap:2px;height:140px}
+  .bar{flex:1;background:var(--acc);border-radius:3px 3px 0 0;min-height:2px}
+  .pill{font-size:12px;color:var(--mut);background:var(--panel2);padding:4px 9px;border-radius:20px}
+  .loading{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:14px;z-index:100;text-align:center;padding:24px}
+  .spin{width:42px;height:42px;border:4px solid var(--line);border-top-color:var(--acc);border-radius:50%;
+    animation:r 1s linear infinite}
+  @keyframes r{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- HOME -->
+  <section id="home" class="screen active">
+    <div class="topbar"><h1>RepCoach</h1></div>
+    <div class="pad">
+      <div class="card"><div class="mut">Автоподсчёт повторений по камере. Полностью офлайн.</div></div>
+      <button class="btn" data-go="select">▶  Начать тренировку</button>
+      <button class="btn sec" data-go="plans">🗒  План тренировок</button>
+      <button class="btn sec" data-go="history">📜  История</button>
+      <button class="btn sec" data-go="stats">📊  Статистика</button>
+      <button class="btn sec" data-go="settings">⚙️  Настройки</button>
+    </div>
+  </section>
+
+  <!-- SELECT -->
+  <section id="select" class="screen">
+    <div class="topbar"><button class="back" data-back>‹</button><h1>Тренировка</h1></div>
+    <div class="pad">
+      <div class="h">Упражнение</div>
+      <div class="seg" id="exChips"></div>
+      <div class="row">
+        <div class="grow"><div class="h">Повторений в подходе</div><input id="selReps" type="number" value="10" min="0" inputmode="numeric"></div>
+        <div class="grow"><div class="h">Подходов</div><input id="selSets" type="number" value="3" min="1" inputmode="numeric"></div>
+      </div>
+      <div class="card mut">Поставьте телефон в 2–3 м так, чтобы тело было в кадре целиком. Боком — для отжиманий/приседаний/ситапов, в анфас — для подтягиваний.</div>
+      <button class="btn" id="startBtn">Открыть камеру</button>
+    </div>
+  </section>
+
+  <!-- WORKOUT -->
+  <section id="workout" class="screen">
+    <canvas id="wcanvas"></canvas>
+    <div class="hud">
+      <div class="top">
+        <div class="info" id="wInfoL"></div>
+        <div class="info" style="text-align:right">
+          <div id="wTimer" class="num">00:00</div>
+          <div class="status"><span class="dot" id="wDot"></span><span id="wStatus">поиск тела…</span></div>
+        </div>
+      </div>
+      <div class="mid"><div class="reps num" id="wReps">0</div></div>
+      <div class="bot">
+        <div class="wbtns">
+          <button class="wbtn adj" id="bMinus">−1</button>
+          <button class="wbtn adj" id="bPlus">+1</button>
+          <button class="wbtn acc" id="bPause">Пауза</button>
+          <button class="wbtn" id="bSet">Завершить подход</button>
+          <button class="wbtn wide" id="bFinish" style="background:rgba(0,211,167,.9)">Завершить тренировку</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLANS -->
+  <section id="plans" class="screen">
+    <div class="topbar"><button class="back" data-back>‹</button><h1>Планы</h1><div class="grow"></div>
+      <button class="btn sm" id="newPlan">+ План</button></div>
+    <div class="pad"><div class="list" id="planList"></div></div>
+  </section>
+
+  <!-- PLAN EDIT -->
+  <section id="planEdit" class="screen">
+    <div class="topbar"><button class="back" data-back>‹</button><h1 id="peTitle">План</h1></div>
+    <div class="pad">
+      <div class="h">Название</div><input id="peName" placeholder="Например: Утро">
+      <div class="h">Упражнения</div><div class="list" id="peItems"></div>
+      <div class="seg" id="peAdd"></div>
+      <button class="btn" id="peSave">Сохранить</button>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="history" class="screen">
+    <div class="topbar"><button class="back" data-back>‹</button><h1>История</h1></div>
+    <div class="pad"><div class="list" id="histList"></div></div>
+  </section>
+
+  <!-- DETAIL -->
+  <section id="detail" class="screen">
+    <div class="topbar"><button class="back" data-back>‹</button><h1>Тренировка</h1></div>
+    <div class="pad" id="detailBody"></div>
+  </section>
+
+  <!-- STATS -->
+  <section id="stats" class="screen">
+    <div class="topbar"><button class="back" data-back>‹</button><h1>Статистика</h1></div>
+    <div class="pad" id="statsBody"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="settings" class="screen">
+    <div class="topbar"><button class="back" data-back>‹</button><h1>Настройки</h1></div>
+    <div class="pad">
+      <div class="card row"><div class="grow"><b>Камера по умолчанию</b><div class="mut">Тыловая удобнее, если телефон стоит.</div></div>
+        <select id="setFacing" style="width:auto"><option value="environment">Тыловая</option><option value="user">Фронтальная</option></select></div>
+      <div class="card row"><div class="grow"><b>Файл календаря (.ics)</b><div class="mut">После тренировки предложить событие для календаря.</div></div>
+        <input type="checkbox" id="setIcs" style="width:auto;transform:scale(1.5)"></div>
+      <button class="btn sec" id="expJson">⬇ Экспорт JSON</button>
+      <button class="btn sec" id="expCsv">⬇ Экспорт CSV</button>
+      <button class="btn sec" id="impJson">⬆ Импорт JSON</button>
+      <input id="impFile" type="file" accept="application/json" style="display:none">
+      <div class="mut">Версия PWA 1.0 · данные хранятся только на этом устройстве.</div>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="loading" id="loading" style="display:none">
+  <div class="spin"></div><div id="loadingTxt">Загрузка модели распознавания…</div>
+  <div class="mut">Первый запуск требует интернет (~5–10 МБ), дальше — офлайн.</div>
+</div>
+
+<script type="module">
+import { FilesetResolver, PoseLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.20";
+
+/* ===================== ПОДДЕРЖКА ===================== */
+const $ = s => document.querySelector(s);
+const Lm = {NOSE:0,LS:11,RS:12,LE:13,RE:14,LW:15,RW:16,LH:23,RH:24,LK:25,RK:26,LA:27,RA:28};
+const EX = {pull_up:'Подтягивания',push_up:'Отжимания',squat:'Приседания',sit_up:'Ситапы'};
+const fmtTime = ms => { const s=Math.floor(ms/1000); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; };
+function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),2200);}
+
+/* ===================== ХРАНИЛИЩЕ ===================== */
+const DB = {
+  k:{w:'rc_workouts',p:'rc_plans',s:'rc_settings'},
+  _g(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},
+  _s(k,v){localStorage.setItem(k,JSON.stringify(v))},
+  workouts(){return this._g(this.k.w,[])},
+  saveWorkout(w){const a=this.workouts();a.unshift(w);this._s(this.k.w,a)},
+  deleteWorkout(id){this._s(this.k.w,this.workouts().filter(x=>x.id!==id))},
+  plans(){return this._g(this.k.p,[])},
+  plan(id){return this.plans().find(p=>p.id===id)},
+  upsertPlan(p){const a=this.plans();const i=a.findIndex(x=>x.id===p.id);if(i>=0)a[i]=p;else a.unshift(p);this._s(this.k.p,a)},
+  deletePlan(id){this._s(this.k.p,this.plans().filter(p=>p.id!==id))},
+  settings(){return this._g(this.k.s,{facing:'environment',ics:false})},
+  saveSettings(s){this._s(this.k.s,s)},
+  importAll(d){
+    if(Array.isArray(d.workouts)){const a=this.workouts();d.workouts.forEach(w=>a.unshift({...w,id:w.id||uid()}));this._s(this.k.w,a);}
+    if(Array.isArray(d.plans)){const a=this.plans();d.plans.forEach(p=>a.unshift({...p,id:uid()}));this._s(this.k.p,a);}
+  }
+};
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+
+/* ===================== МАТЕМАТИКА ПОЗЫ ===================== */
+const Geo = {
+  angle(a,b,c){const abx=a.x-b.x,aby=a.y-b.y,cbx=c.x-b.x,cby=c.y-b.y;
+    const dot=abx*cbx+aby*cby,ma=Math.hypot(abx,aby),mc=Math.hypot(cbx,cby);
+    if(ma<1e-6||mc<1e-6)return 0;return Math.acos(Math.max(-1,Math.min(1,dot/(ma*mc))))*180/Math.PI;},
+  incl(a,b){return Math.atan2(Math.abs(b.y-a.y),Math.abs(b.x-a.x))*180/Math.PI;},
+  norm(v,lo,hi){return Math.max(0,Math.min(1,(v-lo)/(hi-lo)));}
+};
+
+/* ===================== ФИЛЬТР ONE-EURO ===================== */
+class OneEuro{
+  constructor(minCut=1,beta=.7,dCut=1){this.minCut=minCut;this.beta=beta;this.dCut=dCut;this.reset();}
+  reset(){this.started=false;this.tPrev=-1;this.xPrev=0;this.dxPrev=0;}
+  _a(c,dt){const tau=1/(2*Math.PI*c);return 1/(1+tau/dt);}
+  filter(x,t){if(!this.started||this.tPrev<0){this.started=true;this.xPrev=x;this.tPrev=t;this.dxPrev=0;return x;}
+    const dt=Math.max(1,t-this.tPrev)/1000;this.tPrev=t;
+    const dx=(x-this.xPrev)/dt,edx=this.dxPrev+this._a(this.dCut,dt)*(dx-this.dxPrev);this.dxPrev=edx;
+    const cut=this.minCut+this.beta*Math.abs(edx),ex=this.xPrev+this._a(cut,dt)*(x-this.xPrev);this.xPrev=ex;return ex;}
+}
+
+/* ===================== АНАЛИЗАТОРЫ УПРАЖНЕНИЙ ===================== */
+/* signal: 0 = старт, 1 = пик. null = поза недостоверна. */
+const MINVIS=0.5;
+function mkFrame(landmarks,aspect){
+  // x масштабируем под aspect, чтобы углы в плоскости кадра не искажались
+  return {
+    g(i){const l=landmarks[i];return l?{x:l.x*aspect,y:l.y,v:(l.visibility??l.presence??1)}:null;},
+    vis(i){const l=landmarks[i];return l&&((l.visibility??l.presence??1)>=MINVIS);}
+  };
+}
+const Analyzers = {
+  push_up:{cfg:{peak:.7,start:.3,gap:450},sig(f){
+    const A=[];
+    if(f.vis(Lm.LS)&&f.vis(Lm.LE)&&f.vis(Lm.LW))A.push(Geo.angle(f.g(Lm.LS),f.g(Lm.LE),f.g(Lm.LW)));
+    if(f.vis(Lm.RS)&&f.vis(Lm.RE)&&f.vis(Lm.RW))A.push(Geo.angle(f.g(Lm.RS),f.g(Lm.RE),f.g(Lm.RW)));
+    if(!A.length)return null;const a=A.reduce((s,x)=>s+x,0)/A.length;return Geo.norm(160-a,0,80);}},
+  squat:{cfg:{peak:.68,start:.3,gap:450},sig(f){
+    const A=[];
+    if(f.vis(Lm.LH)&&f.vis(Lm.LK)&&f.vis(Lm.LA))A.push(Geo.angle(f.g(Lm.LH),f.g(Lm.LK),f.g(Lm.LA)));
+    if(f.vis(Lm.RH)&&f.vis(Lm.RK)&&f.vis(Lm.RA))A.push(Geo.angle(f.g(Lm.RH),f.g(Lm.RK),f.g(Lm.RA)));
+    if(!A.length)return null;const a=A.reduce((s,x)=>s+x,0)/A.length;return Geo.norm(170-a,0,80);}},
+  pull_up:{cfg:{peak:.7,start:.32,gap:450},sig(f){
+    const A=[];
+    if(f.vis(Lm.LS)&&f.vis(Lm.LE)&&f.vis(Lm.LW))A.push(Geo.angle(f.g(Lm.LS),f.g(Lm.LE),f.g(Lm.LW)));
+    if(f.vis(Lm.RS)&&f.vis(Lm.RE)&&f.vis(Lm.RW))A.push(Geo.angle(f.g(Lm.RS),f.g(Lm.RE),f.g(Lm.RW)));
+    if(!A.length)return null;
+    const flex=Geo.norm(160-A.reduce((s,x)=>s+x,0)/A.length,0,105);
+    let vert=null;
+    const n=f.g(Lm.NOSE),ls=f.g(Lm.LS),rs=f.g(Lm.RS),lw=f.g(Lm.LW),rw=f.g(Lm.RW),lh=f.g(Lm.LH),rh=f.g(Lm.RH);
+    if(n&&ls&&rs&&lw&&rw&&lh&&rh){const wy=(lw.y+rw.y)/2,sy=(ls.y+rs.y)/2,hy=(lh.y+rh.y)/2,torso=hy-sy;
+      if(torso>1e-3){const gap=(n.y-wy)/torso;vert=1-Geo.norm(gap,0.2,1.4);}}
+    return vert!=null?0.5*flex+0.5*vert:flex;}},
+  sit_up:{cfg:{peak:.68,start:.28,gap:500},sig(f){
+    if(!f.vis(Lm.LH)||!f.vis(Lm.RH))return null;
+    if(!f.vis(Lm.LS)&&!f.vis(Lm.RS))return null;
+    const ls=f.g(Lm.LS),rs=f.g(Lm.RS),lh=f.g(Lm.LH),rh=f.g(Lm.RH);
+    const sh={x:((ls?.x??rs.x)+(rs?.x??ls.x))/2,y:((ls?.y??rs.y)+(rs?.y??ls.y))/2};
+    const hp={x:(lh.x+rh.x)/2,y:(lh.y+rh.y)/2};
+    return Geo.norm(Geo.incl(hp,sh),15,65);}}
+};
+
+/* ===================== FSM ГИСТЕРЕЗИС ===================== */
+class RepEngine{
+  constructor(ex){this.A=Analyzers[ex];this.cfg=this.A.cfg;this.filter=new OneEuro();this.reset();}
+  reset(){this.reps=0;this.phase='start';this.reachedPeak=false;this.lastRep=0;this.lost=0;this.filter.reset();}
+  adjust(d){this.reps=Math.max(0,this.reps+d);}
+  onFrame(landmarks,aspect,t){
+    const raw=landmarks?this.A.sig(mkFrame(landmarks,aspect)):null;
+    if(raw==null){this.lost++;if(this.lost>5)this.filter.reset();return{quality:'lost',phase:this.phase,reps:this.reps,counted:false};}
+    this.lost=0;const s=this.filter.filter(raw,t);let counted=false;
+    if(s>=this.cfg.peak){this.reachedPeak=true;this.phase='peak';}
+    else if(s<=this.cfg.start){
+      if(this.reachedPeak&&t-this.lastRep>=this.cfg.gap){this.reps++;counted=true;this.lastRep=t;}
+      this.reachedPeak=false;this.phase='start';
+    } else {this.phase=this.reachedPeak?'down':'up';}
+    return{quality:'good',phase:this.phase,reps:this.reps,counted,signal:s};
+  }
+}
+
+/* ===================== РОУТЕР ===================== */
+const screens=[...document.querySelectorAll('.screen')];
+let stack=['home'];
+function show(id){screens.forEach(s=>s.classList.toggle('active',s.id===id));}
+function go(id){if(stack[stack.length-1]!==id)stack.push(id);show(id);onEnter(id);}
+function back(){if(workoutActive)stopWorkout(false);if(stack.length>1)stack.pop();show(stack[stack.length-1]);onEnter(stack[stack.length-1]);}
+document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
+document.querySelectorAll('[data-back]').forEach(b=>b.onclick=back);
+
+/* ===================== SELECT ===================== */
+let selExercise='push_up';
+function buildExChips(){
+  const c=$('#exChips');c.innerHTML='';
+  Object.entries(EX).forEach(([k,v])=>{
+    const d=document.createElement('div');d.className='chip'+(k===selExercise?' on':'');d.textContent=v;
+    d.onclick=()=>{selExercise=k;buildExChips();};c.appendChild(d);
+  });
+}
+$('#startBtn').onclick=()=>{
+  pendingWorkout={exercise:selExercise,target:Math.max(0,+$('#selReps').value||0),
+    plannedSets:Math.max(1,+$('#selSets').value||1)};
+  go('workout');
+};
+
+/* ===================== WORKOUT ===================== */
+let poseLandmarker=null,modelReady=false;
+let stream=null,video=null,rafId=null,engine=null,lastVideoTime=-1;
+let workoutActive=false,paused=false,pendingWorkout=null;
+let ws=null; // workout state
+const canvas=$('#wcanvas'),ctx=canvas.getContext('2d');
+
+async function ensureModel(){
+  if(modelReady)return;
+  $('#loading').style.display='flex';
+  try{
+    const vision=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.20/wasm");
+    poseLandmarker=await PoseLandmarker.createFromOptions(vision,{
+      baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",delegate:"GPU"},
+      runningMode:"VIDEO",numPoses:1,
+      minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5,minTrackingConfidence:.5
+    });
+    modelReady=true;
+  }catch(e){
+    try{ // запасной путь: CPU
+      const vision=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.20/wasm");
+      poseLandmarker=await PoseLandmarker.createFromOptions(vision,{
+        baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",delegate:"CPU"},
+        runningMode:"VIDEO",numPoses:1});
+      modelReady=true;
+    }catch(e2){throw e2;}
+  }finally{$('#loading').style.display='none';}
+}
+
+async function startWorkout(){
+  const cfg=pendingWorkout;
+  try{ await ensureModel(); }
+  catch(e){ toast('Не удалось загрузить модель. Нужен интернет при первом запуске.'); back(); return; }
+  try{
+    const facing=DB.settings().facing;
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}},audio:false});
+  }catch(e){ toast('Нет доступа к камере. Разрешите камеру в браузере.'); back(); return; }
+  video=document.createElement('video');video.playsInline=true;video.muted=true;video.srcObject=stream;
+  await video.play();
+  engine=new RepEngine(cfg.exercise);
+  ws={exercise:cfg.exercise,target:cfg.target,plannedSets:cfg.plannedSets,setNumber:1,
+      startedAt:Date.now(),setStart:Date.now(),sets:[],mirror:DB.settings().facing==='user'};
+  paused=false;workoutActive=true;lastVideoTime=-1;
+  $('#bPause').textContent='Пауза';
+  updateHud({quality:'lost',phase:'start',reps:0});
+  resizeCanvas();
+  loop();
+  tick();
+}
+
+let tickId=null;
+function tick(){clearInterval(tickId);tickId=setInterval(()=>{
+  if(ws&&!paused)$('#wTimer').textContent=fmtTime(Date.now()-ws.setStart);
+},500);}
+
+function resizeCanvas(){const r=canvas.getBoundingClientRect();canvas.width=r.width*devicePixelRatio;canvas.height=r.height*devicePixelRatio;}
+addEventListener('resize',()=>{if(workoutActive)resizeCanvas();});
+
+function loop(){
+  if(!workoutActive){return;}
+  if(video.readyState>=2){
+    const cw=canvas.width,ch=canvas.height;
+    // cover fit
+    const vw=video.videoWidth,vh=video.videoHeight,scale=Math.max(cw/vw,ch/vh);
+    const dw=vw*scale,dh=vh*scale,dx=(cw-dw)/2,dy=(ch-dh)/2;
+    ctx.save();
+    if(ws.mirror){ctx.translate(cw,0);ctx.scale(-1,1);}
+    ctx.drawImage(video,dx,dy,dw,dh);
+    ctx.restore();
+
+    if(video.currentTime!==lastVideoTime){
+      lastVideoTime=video.currentTime;
+      const t=performance.now();
+      let landmarks=null;
+      try{const res=poseLandmarker.detectForVideo(video,t);
+          if(res.landmarks&&res.landmarks.length)landmarks=res.landmarks[0];}catch(e){}
+      lastLandmarks=landmarks;
+      if(landmarks)drawSkeleton(landmarks,{vw,vh,scale,dx,dy,cw,ch,mirror:ws.mirror});
+      if(!paused){
+        const r=engine.onFrame(landmarks,vw/vh,t);
+        if(r.counted)navigator.vibrate&&navigator.vibrate(35);
+        updateHud(r);
+      }
+    } else if(lastLandmarks){
+      drawSkeleton(lastLandmarks,{vw,vh,scale,dx,dy,cw,ch,mirror:ws.mirror});
+    }
+  }
+  rafId=requestAnimationFrame(loop);
+}
+let lastLandmarks=null;
+const BONES=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
+function mapPt(l,m){let cx=m.dx+l.x*m.vw*m.scale,cy=m.dy+l.y*m.vh*m.scale;if(m.mirror)cx=m.cw-cx;return[cx,cy];}
+function drawSkeleton(lm,m){
+  ctx.lineWidth=Math.max(3,m.cw*0.006);ctx.strokeStyle='#00e5ff';
+  for(const[a,b]of BONES){const A=lm[a],B=lm[b];if((A.visibility??1)<.4||(B.visibility??1)<.4)continue;
+    const[ax,ay]=mapPt(A,m),[bx,by]=mapPt(B,m);ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();}
+  ctx.fillStyle='#ffc107';for(const l of lm){if((l.visibility??1)<.4)continue;const[x,y]=mapPt(l,m);
+    ctx.beginPath();ctx.arc(x,y,Math.max(4,m.cw*0.008),0,7);ctx.fill();}
+}
+
+function updateHud(r){
+  $('#wReps').textContent=r.reps;
+  $('#wInfoL').innerHTML=`<b>${EX[ws.exercise]}</b><br>Подход ${ws.setNumber}${ws.target?` · цель ${ws.target}`:''}`;
+  const ok=r.quality==='good';
+  $('#wDot').className='dot'+(ok?' ok':'');
+  $('#wStatus').textContent= !ok?'тело не видно': r.phase==='peak'?'пик': r.phase==='start'?'старт':'движение…';
+}
+
+$('#bPlus').onclick=()=>{if(engine){engine.adjust(1);$('#wReps').textContent=engine.reps;}};
+$('#bMinus').onclick=()=>{if(engine){engine.adjust(-1);$('#wReps').textContent=engine.reps;}};
+$('#bPause').onclick=()=>{paused=!paused;$('#bPause').textContent=paused?'Старт':'Пауза';};
+$('#bSet').onclick=()=>commitSet();
+$('#bFinish').onclick=()=>finishWorkout();
+
+function commitSet(){
+  if(!engine)return;
+  ws.sets.push({setNumber:ws.setNumber,exercise:ws.exercise,targetReps:ws.target,
+    actualReps:engine.reps,durationMs:Date.now()-ws.setStart});
+  engine.reset();ws.setNumber++;ws.setStart=Date.now();
+  $('#wReps').textContent='0';
+  toast('Подход сохранён');
+}
+function finishWorkout(){
+  if(engine&&engine.reps>0)commitSet();
+  const sets=ws.sets;
+  if(sets.length){
+    const w={id:uid(),exercise:ws.exercise,startedAt:ws.startedAt,endedAt:Date.now(),
+      durationMs:Date.now()-ws.startedAt,sets};
+    DB.saveWorkout(w);
+    if(DB.settings().ics)downloadIcs(w);
+    toast('Тренировка сохранена');
+  }
+  stopWorkout(true);
+}
+function stopWorkout(navHome){
+  workoutActive=false;paused=false;clearInterval(tickId);
+  if(rafId)cancelAnimationFrame(rafId);rafId=null;
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+  if(video){video.srcObject=null;video=null;}
+  engine=null;lastLandmarks=null;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(navHome){stack=['home'];show('home');onEnter('home');}
+}
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&workoutActive&&!paused){paused=true;$('#bPause').textContent='Старт';}});
+
+/* ===================== PLANS ===================== */
+function renderPlans(){
+  const c=$('#planList');const plans=DB.plans();c.innerHTML='';
+  if(!plans.length){c.innerHTML='<div class="empty">Планов пока нет.<br>Создайте первый — кнопка «+ План».</div>';return;}
+  plans.forEach(p=>{
+    const div=document.createElement('div');div.className='item';
+    const sum=p.items.map(i=>`${EX[i.exercise]} ${i.sets}×${i.reps}`).join(', ')||'пусто';
+    div.innerHTML=`<div class="grow" data-edit><b>${esc(p.name||'Без названия')}</b><div class="mut">${esc(sum)}</div></div>`;
+    const act=document.createElement('div');act.className='row';
+    act.innerHTML=`<button class="btn sm sec" data-dup>⧉</button><button class="btn sm danger" data-del>🗑</button>`;
+    div.appendChild(act);
+    div.querySelector('[data-edit]').onclick=()=>{editPlan(p.id);};
+    act.querySelector('[data-dup]').onclick=e=>{e.stopPropagation();const c2={...p,id:uid(),name:p.name+' (копия)',items:p.items.map(i=>({...i}))};DB.upsertPlan(c2);renderPlans();};
+    act.querySelector('[data-del]').onclick=e=>{e.stopPropagation();DB.deletePlan(p.id);renderPlans();};
+    c.appendChild(div);
+  });
+}
+let peDraft=null;
+$('#newPlan').onclick=()=>editPlan(null);
+function editPlan(id){
+  peDraft=id?JSON.parse(JSON.stringify(DB.plan(id))):{id:uid(),name:'',createdAt:Date.now(),items:[]};
+  $('#peTitle').textContent=id?'Редактирование':'Новый план';
+  $('#peName').value=peDraft.name;
+  renderPeItems();renderPeAdd();go('planEdit');
+}
+function renderPeAdd(){
+  const c=$('#peAdd');c.innerHTML='';
+  Object.entries(EX).forEach(([k,v])=>{const b=document.createElement('button');b.className='btn sm ghost';
+    b.textContent='+ '+v;b.onclick=()=>{peDraft.items.push({exercise:k,sets:3,reps:10});renderPeItems();};c.appendChild(b);});
+}
+function renderPeItems(){
+  const c=$('#peItems');c.innerHTML='';
+  if(!peDraft.items.length){c.innerHTML='<div class="mut">Добавьте упражнения ниже.</div>';return;}
+  peDraft.items.forEach((it,idx)=>{
+    const d=document.createElement('div');d.className='card row';
+    d.innerHTML=`<div class="grow"><b>${EX[it.exercise]}</b></div>
+      <div><div class="h">подх.</div><input type="number" value="${it.sets}" min="1" inputmode="numeric" style="width:64px"></div>
+      <div><div class="h">повт.</div><input type="number" value="${it.reps}" min="0" inputmode="numeric" style="width:64px"></div>
+      <button class="btn sm danger" style="padding:10px">✕</button>`;
+    const[si,ri]=d.querySelectorAll('input');
+    si.oninput=()=>it.sets=Math.max(1,+si.value||1);ri.oninput=()=>it.reps=Math.max(0,+ri.value||0);
+    d.querySelector('button').onclick=()=>{peDraft.items.splice(idx,1);renderPeItems();};
+    c.appendChild(d);
+  });
+}
+$('#peSave').onclick=()=>{peDraft.name=$('#peName').value.trim()||'Без названия';DB.upsertPlan(peDraft);back();renderPlans();toast('План сохранён');};
+
+/* ===================== HISTORY ===================== */
+function renderHistory(){
+  const c=$('#histList');const ws=DB.workouts();c.innerHTML='';
+  if(!ws.length){c.innerHTML='<div class="empty">История пуста.<br>Завершите первую тренировку.</div>';return;}
+  ws.forEach(w=>{
+    const reps=w.sets.reduce((s,x)=>s+x.actualReps,0);
+    const d=document.createElement('div');d.className='item';
+    d.innerHTML=`<div class="grow"><b>${EX[w.exercise]}</b><div class="mut">${new Date(w.startedAt).toLocaleString('ru-RU')}</div></div>
+      <div style="text-align:right"><div class="num"><b>${reps}</b> повт.</div><div class="mut">${w.sets.length} подх. · ${fmtTime(w.durationMs)}</div></div>`;
+    d.onclick=()=>showDetail(w.id);c.appendChild(d);
+  });
+}
+function showDetail(id){
+  const w=DB.workouts().find(x=>x.id===id);if(!w)return;
+  const b=$('#detailBody');
+  b.innerHTML=`<div class="card"><b>${EX[w.exercise]}</b><div class="mut">${new Date(w.startedAt).toLocaleString('ru-RU')}</div>
+    <div class="mut">Длительность: ${fmtTime(w.durationMs)} · Всего: ${w.sets.reduce((s,x)=>s+x.actualReps,0)} повт.</div></div>`;
+  w.sets.forEach(s=>{const d=document.createElement('div');d.className='item';
+    d.innerHTML=`<div>Подход ${s.setNumber}</div><div class="num"><b>${s.actualReps}</b>${s.targetReps?` / ${s.targetReps}`:''} · ${fmtTime(s.durationMs)}</div>`;b.appendChild(d);});
+  const del=document.createElement('button');del.className='btn danger';del.textContent='Удалить тренировку';
+  del.onclick=()=>{DB.deleteWorkout(id);back();renderHistory();};b.appendChild(del);
+  go('detail');
+}
+
+/* ===================== STATS ===================== */
+function renderStats(){
+  const ws=DB.workouts(),now=Date.now(),day=864e5;
+  const since=f=>ws.filter(w=>w.startedAt>=now-f);
+  const reps=arr=>arr.reduce((s,w)=>s+w.sets.reduce((a,x)=>a+x.actualReps,0),0);
+  const dur=arr=>arr.reduce((s,w)=>s+w.durationMs,0);
+  const wk=since(7*day),mo=since(30*day);
+  // daily reps last 30 days
+  const buckets=new Array(30).fill(0);
+  mo.forEach(w=>{const d=Math.floor((now-w.startedAt)/day);if(d>=0&&d<30)buckets[29-d]+=w.sets.reduce((a,x)=>a+x.actualReps,0);});
+  const max=Math.max(1,...buckets);
+  const bars=buckets.map(v=>`<div class="bar" style="height:${(v/max*100)||0}%"></div>`).join('');
+  $('#statsBody').innerHTML=`
+    <div class="card"><div class="h">За неделю</div>
+      <div class="row wrap"><span class="pill">${wk.length} тренировок</span><span class="pill">${reps(wk)} повторений</span><span class="pill">${fmtTime(dur(wk))} времени</span></div></div>
+    <div class="card"><div class="h">За месяц</div>
+      <div class="row wrap"><span class="pill">${mo.length} тренировок</span><span class="pill">${reps(mo)} повторений</span><span class="pill">${fmtTime(dur(mo))} времени</span></div></div>
+    <div class="card"><div class="h">Повторений по дням (30 дней)</div><div class="bars">${bars}</div></div>`;
+}
+
+/* ===================== SETTINGS / EXPORT ===================== */
+function loadSettings(){const s=DB.settings();$('#setFacing').value=s.facing;$('#setIcs').checked=!!s.ics;}
+$('#setFacing').onchange=()=>{const s=DB.settings();s.facing=$('#setFacing').value;DB.saveSettings(s);};
+$('#setIcs').onchange=()=>{const s=DB.settings();s.ics=$('#setIcs').checked;DB.saveSettings(s);};
+function dl(name,text,type){const b=new Blob([text],{type});const u=URL.createObjectURL(b);
+  const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
+$('#expJson').onclick=()=>dl('repcoach_backup.json',JSON.stringify({version:1,workouts:DB.workouts(),plans:DB.plans()},null,2),'application/json');
+$('#expCsv').onclick=()=>{
+  let csv='workoutStart;exercise;setNumber;targetReps;actualReps;setDurationMs\n';
+  DB.workouts().forEach(w=>w.sets.forEach(s=>csv+=`${new Date(w.startedAt).toISOString()};${s.exercise};${s.setNumber};${s.targetReps};${s.actualReps};${s.durationMs}\n`));
+  dl('repcoach_backup.csv',csv,'text/csv');
+};
+$('#impJson').onclick=()=>$('#impFile').click();
+$('#impFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{DB.importAll(JSON.parse(r.result));toast('Импорт выполнен');}catch{toast('Ошибка: файл повреждён');}e.target.value='';};r.readAsText(f);};
+function downloadIcs(w){
+  const dt=d=>new Date(d).toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  const reps=w.sets.reduce((s,x)=>s+x.actualReps,0);
+  const ics=`BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//RepCoach//RU\nBEGIN:VEVENT\nUID:${w.id}@repcoach\nDTSTAMP:${dt(w.startedAt)}\nDTSTART:${dt(w.startedAt)}\nDTEND:${dt(w.endedAt)}\nSUMMARY:Тренировка: ${EX[w.exercise]} ${reps} повт.\nEND:VEVENT\nEND:VCALENDAR`;
+  dl('workout.ics',ics,'text/calendar');
+}
+
+/* ===================== ВХОД В ЭКРАНЫ ===================== */
+function onEnter(id){
+  if(id==='select')buildExChips();
+  if(id==='workout'&&!workoutActive)startWorkout();
+  if(id==='plans')renderPlans();
+  if(id==='history')renderHistory();
+  if(id==='stats')renderStats();
+  if(id==='settings')loadSettings();
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+/* ===================== SW ===================== */
+if('serviceWorker'in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
+buildExChips();
+</script>
+</body>
+</html>
